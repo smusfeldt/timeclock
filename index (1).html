@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1C1B1A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Work Clock">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Work Clock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #1C1B1A;
+    --card: #242220;
+    --card-raised: #2C2A27;
+    --brass: #C98A3D;
+    --brass-dim: #8a5f2b;
+    --ink: #F2EDE4;
+    --ink-dim: #8A8580;
+    --green: #6B8E63;
+    --rust: #A5473A;
+    --line: #37342F;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{margin:0; padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter', system-ui, sans-serif;
+    min-height:100vh;
+    min-height:100dvh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding: env(safe-area-inset-top,20px) 16px calc(env(safe-area-inset-bottom,20px) + 16px);
+  }
+  .wrap{ width:100%; max-width:440px; display:flex; flex-direction:column; gap:20px; }
+
+  header{ text-align:center; margin-top:8px; }
+  header .eyebrow{
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--brass); margin-bottom:4px;
+  }
+  header h1{ font-size:20px; font-weight:600; margin:0; letter-spacing:-.01em;}
+
+  /* Tabs */
+  .tabbar{
+    display:flex;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:4px;
+    gap:4px;
+  }
+  .tabbtn{
+    flex:1;
+    background:none;
+    border:none;
+    color:var(--ink-dim);
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    padding:10px 0;
+    border-radius:10px;
+    cursor:pointer;
+  }
+  .tabbtn.active{
+    background:var(--card-raised);
+    color:var(--brass);
+  }
+  .view{ display:flex; flex-direction:column; gap:20px; }
+  .view.hidden{ display:none; }
+
+  /* Big timer display */
+  .timer-card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:20px;
+    padding:28px 20px;
+    text-align:center;
+    position:relative;
+    overflow:hidden;
+  }
+  .timer-card::before{
+    content:"";
+    position:absolute; inset:0;
+    background: radial-gradient(circle at 50% 0%, rgba(201,138,61,0.08), transparent 60%);
+    pointer-events:none;
+  }
+  .status-dot{
+    display:inline-flex; align-items:center; gap:6px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--ink-dim);
+    margin-bottom:10px;
+  }
+  .status-dot span.dot{
+    width:8px; height:8px; border-radius:50%;
+    background:var(--ink-dim);
+  }
+  .status-dot.active span.dot{ background:var(--green); box-shadow:0 0 0 4px rgba(107,142,99,0.2);}
+  .status-dot.active .label{ color:var(--green); }
+
+  .elapsed{
+    font-family:'JetBrains Mono', monospace;
+    font-weight:700;
+    font-size:44px;
+    letter-spacing:.01em;
+    font-variant-numeric: tabular-nums;
+  }
+  .task-name{
+    margin-top:6px;
+    font-size:14px;
+    color:var(--ink-dim);
+    min-height:20px;
+  }
+
+  /* Task input row */
+  .task-row{
+    display:flex; gap:8px;
+  }
+  .task-row input{
+    flex:1;
+    background:var(--card);
+    border:1px solid var(--line);
+    color:var(--ink);
+    border-radius:12px;
+    padding:14px 14px;
+    font-size:15px;
+    font-family:inherit;
+  }
+  .task-row input:focus{ outline:none; border-color:var(--brass-dim); }
+  .task-row input::placeholder{ color:var(--ink-dim); }
+
+  .chips{ display:flex; gap:8px; flex-wrap:wrap; }
+  .chip{
+    background:var(--card-raised);
+    border:1px solid var(--line);
+    color:var(--ink-dim);
+    font-size:13px;
+    padding:7px 12px;
+    border-radius:100px;
+    cursor:pointer;
+    font-family:inherit;
+  }
+  .chip:active{ transform: scale(0.96); }
+
+  /* The punch button */
+  .punch-wrap{ display:flex; justify-content:center; padding: 6px 0 2px; }
+  .punch{
+    width:150px; height:150px;
+    border-radius:50%;
+    border:none;
+    cursor:pointer;
+    position:relative;
+    font-family:'JetBrains Mono', monospace;
+    font-weight:700;
+    font-size:16px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:#1C1B1A;
+    background: linear-gradient(180deg, #DDA355, var(--brass) 55%, var(--brass-dim));
+    box-shadow:
+      0 8px 0 #7a521f,
+      0 12px 20px rgba(0,0,0,0.4);
+    transition: transform .06s ease, box-shadow .06s ease;
+  }
+  .punch:active{
+    transform: translateY(6px);
+    box-shadow:
+      0 2px 0 #7a521f,
+      0 4px 10px rgba(0,0,0,0.4);
+  }
+  .punch.on{
+    background: linear-gradient(180deg, #8fae87, var(--green) 55%, #4c6a46);
+    box-shadow:
+      0 8px 0 #37502f,
+      0 12px 20px rgba(0,0,0,0.4);
+  }
+  .punch.on:active{
+    box-shadow: 0 2px 0 #37502f, 0 4px 10px rgba(0,0,0,0.4);
+  }
+
+  /* Summary strip */
+  .summary{
+    display:flex;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:16px;
+    overflow:hidden;
+  }
+  .summary .stat{ flex:1; text-align:center; padding:14px 8px; }
+  .summary .stat + .stat{ border-left:1px solid var(--line); }
+  .summary .stat .num{
+    font-family:'JetBrains Mono', monospace; font-weight:700; font-size:18px;
+  }
+  .summary .stat .cap{ font-size:11px; color:var(--ink-dim); margin-top:2px; text-transform:uppercase; letter-spacing:.08em;}
+
+  /* History */
+  .history{ display:flex; flex-direction:column; gap:10px; }
+  .history-head{ display:flex; align-items:center; justify-content:space-between; }
+  .export-btn{
+    background:var(--card-raised);
+    border:1px solid var(--line);
+    color:var(--brass);
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    padding:7px 12px;
+    border-radius:8px;
+    cursor:pointer;
+  }
+  .history h2, .section-label{
+    font-size:12px; text-transform:uppercase; letter-spacing:.14em;
+    color:var(--ink-dim); margin: 4px 2px;
+    font-family:'JetBrains Mono', monospace; font-weight:500;
+  }
+  .day-group{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding: 4px 14px;
+  }
+  .day-label{
+    font-size:11px; color:var(--brass); text-transform:uppercase; letter-spacing:.1em;
+    padding: 10px 0 4px;
+    font-family:'JetBrains Mono', monospace;
+  }
+  .entry{
+    padding:10px 0;
+    border-top:1px solid var(--line);
+  }
+  .entry:first-of-type{ border-top:none; }
+  .entry-top{
+    display:flex; justify-content:space-between; align-items:center;
+    gap:10px;
+  }
+  .entry .name{ font-size:14px; }
+  .entry .range{ font-size:12px; color:var(--ink-dim); }
+  .entry .dur{
+    font-family:'JetBrains Mono', monospace; font-size:13px; font-weight:600;
+    white-space:nowrap;
+  }
+  .entry .del{
+    background:none; border:none; color:var(--ink-dim);
+    font-size:16px; cursor:pointer; padding:4px 6px; line-height:1;
+  }
+  .reflection{
+    margin-top:8px;
+    background:var(--card-raised);
+    border-left:2px solid var(--brass-dim);
+    padding:8px 10px;
+    border-radius:0 8px 8px 0;
+    font-size:13px;
+    color:var(--ink-dim);
+    font-style:italic;
+  }
+  .add-reflection-link{
+    background:none; border:none; color:var(--brass);
+    font-size:12px; font-family:'JetBrains Mono', monospace;
+    cursor:pointer; padding:6px 0 0; text-decoration:underline;
+  }
+
+  .empty{ text-align:center; color:var(--ink-dim); font-size:13px; padding:24px 0; }
+
+  footer{ text-align:center; padding: 10px 0 4px; font-size:11px; color:var(--ink-dim); font-family:'JetBrains Mono', monospace; }
+
+  /* Modal */
+  .modal-overlay{
+    position:fixed; inset:0;
+    background:rgba(0,0,0,0.6);
+    display:flex; align-items:flex-end; justify-content:center;
+    z-index:100;
+  }
+  .modal-overlay.hidden{ display:none; }
+  .modal{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:20px 20px 0 0;
+    padding:20px 18px calc(env(safe-area-inset-bottom,16px) + 18px);
+    width:100%; max-width:440px;
+    display:flex; flex-direction:column; gap:12px;
+  }
+  .modal h3{ margin:0; font-size:16px; }
+  .modal p.sub{ margin:0; font-size:13px; color:var(--ink-dim); }
+  .modal textarea{
+    background:var(--card-raised);
+    border:1px solid var(--line);
+    color:var(--ink);
+    border-radius:12px;
+    padding:12px;
+    font-size:14px;
+    font-family:inherit;
+    min-height:90px;
+    resize:vertical;
+  }
+  .modal textarea:focus{ outline:none; border-color:var(--brass-dim); }
+  .modal-actions{ display:flex; gap:10px; }
+  .btn{
+    flex:1;
+    padding:12px;
+    border-radius:12px;
+    border:none;
+    font-family:inherit;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .btn-primary{ background:var(--brass); color:#1C1B1A; }
+  .btn-secondary{ background:var(--card-raised); color:var(--ink-dim); border:1px solid var(--line); }
+
+  /* Calendar */
+  .cal-header{
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:10px 14px;
+  }
+  .cal-header .month-label{ font-weight:600; font-size:15px; }
+  .cal-nav{
+    background:var(--card-raised);
+    border:1px solid var(--line);
+    color:var(--ink);
+    width:32px; height:32px;
+    border-radius:8px;
+    font-size:16px;
+    cursor:pointer;
+  }
+  .cal-grid{
+    display:grid;
+    grid-template-columns:repeat(7, 1fr);
+    gap:6px;
+  }
+  .cal-dow{
+    text-align:center; font-size:10px; color:var(--ink-dim);
+    font-family:'JetBrains Mono', monospace; letter-spacing:.06em;
+    padding-bottom:2px;
+  }
+  .cal-cell{
+    aspect-ratio:1;
+    border-radius:10px;
+    background:var(--card);
+    border:1px solid var(--line);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:3px;
+    cursor:pointer;
+    font-size:13px;
+    color:var(--ink);
+    position:relative;
+  }
+  .cal-cell.empty{ background:none; border:none; cursor:default; }
+  .cal-cell.today{ border-color:var(--brass-dim); }
+  .cal-cell.selected{ background:var(--card-raised); border-color:var(--brass); }
+  .cal-dots{ display:flex; gap:3px; height:5px; }
+  .cal-dots .d{ width:5px; height:5px; border-radius:50%; }
+  .cal-dots .d.sched{ background:var(--brass); }
+  .cal-dots .d.done{ background:var(--green); }
+
+  .day-panel{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:16px;
+    display:flex; flex-direction:column; gap:14px;
+  }
+  .day-panel .day-title{ font-size:15px; font-weight:600; }
+
+  .sched-form{ display:flex; gap:8px; }
+  .sched-form input[type="text"]{
+    flex:1;
+    background:var(--card-raised);
+    border:1px solid var(--line);
+    color:var(--ink);
+    border-radius:10px;
+    padding:10px;
+    font-size:14px;
+    font-family:inherit;
+  }
+  .sched-form input[type="time"]{
+    background:var(--card-raised);
+    border:1px solid var(--line);
+    color:var(--ink);
+    border-radius:10px;
+    padding:10px 8px;
+    font-size:13px;
+    font-family:inherit;
+    width:100px;
+  }
+  .sched-form button{
+    background:var(--brass); color:#1C1B1A; border:none;
+    border-radius:10px; padding:0 16px; font-weight:700; cursor:pointer;
+  }
+  .sched-list{ display:flex; flex-direction:column; gap:8px; }
+  .sched-item{
+    display:flex; align-items:center; gap:10px;
+    background:var(--card-raised);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:10px 12px;
+  }
+  .sched-item .time{
+    font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--brass);
+    min-width:52px;
+  }
+  .sched-item .title{ flex:1; font-size:14px; }
+  .sched-item .del{ background:none; border:none; color:var(--ink-dim); cursor:pointer; font-size:15px; }
+
+  .day-sessions .entry{ font-size:13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Personal Time Clock</div>
+    <h1>Work Clock</h1>
+  </header>
+
+  <div class="tabbar">
+    <button class="tabbtn active" id="tabClockBtn">Clock</button>
+    <button class="tabbtn" id="tabCalBtn">Calendar</button>
+  </div>
+
+  <!-- CLOCK VIEW -->
+  <div class="view" id="clockView">
+    <div class="timer-card">
+      <div class="status-dot" id="statusDot"><span class="dot"></span><span class="label" id="statusLabel">Clocked Out</span></div>
+      <div class="elapsed" id="elapsed">00:00:00</div>
+      <div class="task-name" id="taskNameDisplay">No active task</div>
+    </div>
+
+    <div class="task-row">
+      <input type="text" id="taskInput" placeholder="What are you working on?" maxlength="60">
+    </div>
+    <div class="chips" id="recentChips"></div>
+
+    <div class="punch-wrap">
+      <button class="punch" id="punchBtn">Clock In</button>
+    </div>
+
+    <div class="summary">
+      <div class="stat"><div class="num" id="statToday">0h 0m</div><div class="cap">Today</div></div>
+      <div class="stat"><div class="num" id="statWeek">0h 0m</div><div class="cap">This Week</div></div>
+      <div class="stat"><div class="num" id="statSessions">0</div><div class="cap">Sessions</div></div>
+    </div>
+
+    <div class="history">
+      <div class="history-head">
+        <h2 style="margin:0;">History</h2>
+        <button class="export-btn" id="exportBtn">Export CSV</button>
+      </div>
+      <div id="historyList"></div>
+    </div>
+  </div>
+
+  <!-- CALENDAR VIEW -->
+  <div class="view hidden" id="calendarView">
+    <div class="cal-header">
+      <button class="cal-nav" id="calPrev">‹</button>
+      <div class="month-label" id="calMonthLabel">Month</div>
+      <button class="cal-nav" id="calNext">›</button>
+    </div>
+    <div class="cal-grid" id="calDow"></div>
+    <div class="cal-grid" id="calGrid"></div>
+
+    <div class="day-panel">
+      <div class="day-title" id="dayPanelTitle">Selected day</div>
+
+      <div>
+        <div class="section-label">Scheduled</div>
+        <div class="sched-form">
+          <input type="time" id="schedTime" value="09:00">
+          <input type="text" id="schedTitle" placeholder="Task to schedule" maxlength="60">
+          <button id="schedAddBtn">Add</button>
+        </div>
+        <div class="sched-list" id="schedList" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="day-sessions">
+        <div class="section-label">Logged</div>
+        <div id="daySessionsList"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>Data is stored only on this device.</footer>
+</div>
+
+<!-- Reflection modal -->
+<div class="modal-overlay hidden" id="reflectionOverlay">
+  <div class="modal">
+    <h3>How did it go?</h3>
+    <p class="sub">Add a quick reflection on that session, or skip it.</p>
+    <textarea id="reflectionInput" placeholder="What got done, what got in the way, how it felt..."></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="reflectionSkip">Skip</button>
+      <button class="btn btn-primary" id="reflectionSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- Storage ---------- */
+// state.active     -> {task, start} while clocked in, or null when clocked out
+// state.sessions   -> array of {id, task, start, end, reflection?}
+// state.scheduled  -> array of {id, date: 'YYYY-MM-DD', time: 'HH:MM', title}
+
+const STORAGE_KEY = 'workclock_state_v1';
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return { active: null, sessions: [], scheduled: [] };
+    const parsed = JSON.parse(raw);
+    if(!parsed.scheduled) parsed.scheduled = [];
+    return parsed;
+  }catch(e){
+    console.error('Failed to load state', e);
+    return { active: null, sessions: [], scheduled: [] };
+  }
+}
+
+function saveState(state){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function uid(){
+  return Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+}
+
+let state = loadState();
+
+/* ---------- Elements: clock view ---------- */
+const punchBtn = document.getElementById('punchBtn');
+const taskInput = document.getElementById('taskInput');
+const elapsedEl = document.getElementById('elapsed');
+const taskNameDisplay = document.getElementById('taskNameDisplay');
+const statusDot = document.getElementById('statusDot');
+const statusLabel = document.getElementById('statusLabel');
+const historyList = document.getElementById('historyList');
+const recentChips = document.getElementById('recentChips');
+const statToday = document.getElementById('statToday');
+const statWeek = document.getElementById('statWeek');
+const statSessions = document.getElementById('statSessions');
+
+/* ---------- Elements: tabs ---------- */
+const tabClockBtn = document.getElementById('tabClockBtn');
+const tabCalBtn = document.getElementById('tabCalBtn');
+const clockView = document.getElementById('clockView');
+const calendarView = document.getElementById('calendarView');
+
+/* ---------- Elements: reflection modal ---------- */
+const reflectionOverlay = document.getElementById('reflectionOverlay');
+const reflectionInput = document.getElementById('reflectionInput');
+const reflectionSkip = document.getElementById('reflectionSkip');
+const reflectionSave = document.getElementById('reflectionSave');
+let pendingReflectionSessionId = null;
+
+/* ---------- Elements: calendar ---------- */
+const calPrev = document.getElementById('calPrev');
+const calNext = document.getElementById('calNext');
+const calMonthLabel = document.getElementById('calMonthLabel');
+const calDow = document.getElementById('calDow');
+const calGrid = document.getElementById('calGrid');
+const dayPanelTitle = document.getElementById('dayPanelTitle');
+const schedTime = document.getElementById('schedTime');
+const schedTitle = document.getElementById('schedTitle');
+const schedAddBtn = document.getElementById('schedAddBtn');
+const schedList = document.getElementById('schedList');
+const daySessionsList = document.getElementById('daySessionsList');
+
+let tickHandle = null;
+let calMonthCursor = new Date(); calMonthCursor.setDate(1); // first of currently viewed month
+let selectedDateKey = dateKey(new Date());
+
+/* ---------- Helpers: time/format ---------- */
+function fmtDuration(ms){
+  const totalSec = Math.max(0, Math.floor(ms/1000));
+  const h = Math.floor(totalSec/3600);
+  const m = Math.floor((totalSec%3600)/60);
+  const s = totalSec%60;
+  return [h,m,s].map(n=>String(n).padStart(2,'0')).join(':');
+}
+function fmtShort(ms){
+  const totalMin = Math.round(ms/60000);
+  const h = Math.floor(totalMin/60);
+  const m = totalMin%60;
+  return `${h}h ${m}m`;
+}
+function fmtTime(ts){
+  return new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+}
+function fmtDay(ts){
+  const d = new Date(ts);
+  const today = new Date();
+  const yest = new Date(); yest.setDate(today.getDate()-1);
+  const sameDay = (a,b)=> a.toDateString()===b.toDateString();
+  if(sameDay(d, today)) return 'Today';
+  if(sameDay(d, yest)) return 'Yesterday';
+  return d.toLocaleDateString([], {weekday:'short', month:'short', day:'numeric'});
+}
+function startOfWeek(){
+  const d = new Date();
+  const day = d.getDay();
+  d.setHours(0,0,0,0);
+  d.setDate(d.getDate()-day);
+  return d.getTime();
+}
+// 'YYYY-MM-DD' key for a Date, based on local time (not UTC) so it matches the user's day
+function dateKey(d){
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+/* ---------- Core actions: clock ---------- */
+function clockIn(){
+  const task = taskInput.value.trim() || 'Untitled task';
+  state.active = { task, start: Date.now() };
+  saveState(state);
+  render();
+}
+
+function clockOut(){
+  if(!state.active) return;
+  const session = {
+    id: uid(),
+    task: state.active.task,
+    start: state.active.start,
+    end: Date.now()
+  };
+  state.sessions.unshift(session);
+  state.active = null;
+  saveState(state);
+  render();
+  openReflectionModal(session.id);
+}
+
+function findSessionById(id){
+  return state.sessions.find(s => s.id === id);
+}
+
+function deleteSession(id){
+  state.sessions = state.sessions.filter(s => s.id !== id);
+  saveState(state);
+  render();
+}
+
+/* ---------- Reflection modal ---------- */
+function openReflectionModal(sessionId){
+  pendingReflectionSessionId = sessionId;
+  const existing = findSessionById(sessionId);
+  reflectionInput.value = (existing && existing.reflection) || '';
+  reflectionOverlay.classList.remove('hidden');
+  setTimeout(()=> reflectionInput.focus(), 50);
+}
+function closeReflectionModal(){
+  reflectionOverlay.classList.add('hidden');
+  pendingReflectionSessionId = null;
+}
+reflectionSkip.addEventListener('click', closeReflectionModal);
+reflectionSave.addEventListener('click', ()=>{
+  const session = findSessionById(pendingReflectionSessionId);
+  if(session){
+    const text = reflectionInput.value.trim();
+    if(text) session.reflection = text;
+    else delete session.reflection;
+    saveState(state);
+    renderHistory();
+    renderCalendarDayPanel();
+  }
+  closeReflectionModal();
+});
+
+/* ---------- Rendering: clock view ---------- */
+function render(){
+  const isActive = !!state.active;
+
+  punchBtn.textContent = isActive ? 'Clock Out' : 'Clock In';
+  punchBtn.classList.toggle('on', isActive);
+  statusDot.classList.toggle('active', isActive);
+  statusLabel.textContent = isActive ? 'Clocked In' : 'Clocked Out';
+  taskNameDisplay.textContent = isActive ? state.active.task : 'No active task';
+  taskInput.value = isActive ? state.active.task : taskInput.value;
+  taskInput.disabled = isActive;
+
+  if(tickHandle) clearInterval(tickHandle);
+  if(isActive){
+    const update = ()=> elapsedEl.textContent = fmtDuration(Date.now()-state.active.start);
+    update();
+    tickHandle = setInterval(update, 1000);
+  } else {
+    elapsedEl.textContent = '00:00:00';
+  }
+
+  const recent = [...new Set(state.sessions.map(s=>s.task))].slice(0,5);
+  recentChips.innerHTML = '';
+  recent.forEach(name=>{
+    const chip = document.createElement('button');
+    chip.className = 'chip';
+    chip.textContent = name;
+    chip.onclick = ()=> { if(!state.active) taskInput.value = name; };
+    recentChips.appendChild(chip);
+  });
+
+  const now = Date.now();
+  const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+  const weekStart = startOfWeek();
+  let todayMs = 0, weekMs = 0;
+  state.sessions.forEach(s=>{
+    const dur = s.end - s.start;
+    if(s.start >= todayStart.getTime()) todayMs += dur;
+    if(s.start >= weekStart) weekMs += dur;
+  });
+  if(isActive){
+    const liveDur = now - state.active.start;
+    if(state.active.start >= todayStart.getTime()) todayMs += liveDur;
+    if(state.active.start >= weekStart) weekMs += liveDur;
+  }
+  statToday.textContent = fmtShort(todayMs);
+  statWeek.textContent = fmtShort(weekMs);
+  statSessions.textContent = state.sessions.length;
+
+  renderHistory();
+  renderCalendar();
+}
+
+function renderHistory(){
+  historyList.innerHTML = '';
+  if(state.sessions.length === 0){
+    historyList.innerHTML = '<div class="empty">No sessions yet — clock in to start your first one.</div>';
+    return;
+  }
+  const groups = new Map();
+  state.sessions.forEach((s)=>{
+    const label = fmtDay(s.start);
+    if(!groups.has(label)) groups.set(label, []);
+    groups.get(label).push(s);
+  });
+  groups.forEach((entries, label)=>{
+    const group = document.createElement('div');
+    group.className = 'day-group';
+    const dayLabel = document.createElement('div');
+    dayLabel.className = 'day-label';
+    dayLabel.textContent = label;
+    group.appendChild(dayLabel);
+    entries.forEach((s)=>{
+      const row = document.createElement('div');
+      row.className = 'entry';
+      row.innerHTML = `
+        <div class="entry-top">
+          <div>
+            <div class="name">${escapeHtml(s.task)}</div>
+            <div class="range">${fmtTime(s.start)} – ${fmtTime(s.end)}</div>
+          </div>
+          <div class="dur">${fmtShort(s.end - s.start)}</div>
+          <button class="del" data-id="${s.id}" aria-label="Delete session">✕</button>
+        </div>
+        ${s.reflection
+          ? `<div class="reflection">${escapeHtml(s.reflection)}</div>`
+          : `<button class="add-reflection-link" data-id="${s.id}">+ Add reflection</button>`
+        }
+      `;
+      group.appendChild(row);
+    });
+    historyList.appendChild(group);
+  });
+  historyList.querySelectorAll('.del').forEach(btn=>{
+    btn.addEventListener('click', ()=> deleteSession(btn.dataset.id));
+  });
+  historyList.querySelectorAll('.add-reflection-link').forEach(btn=>{
+    btn.addEventListener('click', ()=> openReflectionModal(btn.dataset.id));
+  });
+}
+
+/* ---------- Tabs ---------- */
+function showTab(tab){
+  const clockActive = tab === 'clock';
+  clockView.classList.toggle('hidden', !clockActive);
+  calendarView.classList.toggle('hidden', clockActive);
+  tabClockBtn.classList.toggle('active', clockActive);
+  tabCalBtn.classList.toggle('active', !clockActive);
+  if(!clockActive) renderCalendar();
+}
+tabClockBtn.addEventListener('click', ()=> showTab('clock'));
+tabCalBtn.addEventListener('click', ()=> showTab('calendar'));
+
+/* ---------- Calendar ---------- */
+function renderCalendar(){
+  const year = calMonthCursor.getFullYear();
+  const month = calMonthCursor.getMonth();
+  calMonthLabel.textContent = calMonthCursor.toLocaleDateString([], {month:'long', year:'numeric'});
+
+  // Day-of-week header (Sun-Sat)
+  calDow.innerHTML = '';
+  ['S','M','T','W','T','F','S'].forEach(d=>{
+    const el = document.createElement('div');
+    el.className = 'cal-dow';
+    el.textContent = d;
+    calDow.appendChild(el);
+  });
+
+  // Build lookup maps: dateKey -> has sessions / has scheduled
+  const sessionDays = new Set(state.sessions.map(s => dateKey(new Date(s.start))));
+  const scheduledDays = new Set(state.scheduled.map(t => t.date));
+
+  const firstDow = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const todayKey = dateKey(new Date());
+
+  calGrid.innerHTML = '';
+  for(let i=0; i<firstDow; i++){
+    const empty = document.createElement('div');
+    empty.className = 'cal-cell empty';
+    calGrid.appendChild(empty);
+  }
+  for(let day=1; day<=daysInMonth; day++){
+    const cellDate = new Date(year, month, day);
+    const key = dateKey(cellDate);
+    const cell = document.createElement('div');
+    cell.className = 'cal-cell';
+    if(key === todayKey) cell.classList.add('today');
+    if(key === selectedDateKey) cell.classList.add('selected');
+
+    const dots = [];
+    if(scheduledDays.has(key)) dots.push('<span class="d sched"></span>');
+    if(sessionDays.has(key)) dots.push('<span class="d done"></span>');
+
+    cell.innerHTML = `<div>${day}</div><div class="cal-dots">${dots.join('')}</div>`;
+    cell.addEventListener('click', ()=>{
+      selectedDateKey = key;
+      renderCalendar();
+      renderCalendarDayPanel();
+    });
+    calGrid.appendChild(cell);
+  }
+
+  renderCalendarDayPanel();
+}
+
+function renderCalendarDayPanel(){
+  const d = new Date(selectedDateKey + 'T00:00:00');
+  dayPanelTitle.textContent = d.toLocaleDateString([], {weekday:'long', month:'long', day:'numeric'});
+
+  // Scheduled tasks for this day
+  const items = state.scheduled
+    .filter(t => t.date === selectedDateKey)
+    .sort((a,b)=> (a.time||'').localeCompare(b.time||''));
+  schedList.innerHTML = '';
+  if(items.length === 0){
+    schedList.innerHTML = '<div class="empty" style="padding:8px 0;">Nothing scheduled.</div>';
+  } else {
+    items.forEach(t=>{
+      const row = document.createElement('div');
+      row.className = 'sched-item';
+      row.innerHTML = `
+        <div class="time">${t.time || '--:--'}</div>
+        <div class="title">${escapeHtml(t.title)}</div>
+        <button class="del" data-id="${t.id}" aria-label="Delete">✕</button>
+      `;
+      schedList.appendChild(row);
+    });
+    schedList.querySelectorAll('.del').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        state.scheduled = state.scheduled.filter(t => t.id !== btn.dataset.id);
+        saveState(state);
+        renderCalendar();
+      });
+    });
+  }
+
+  // Logged sessions for this day (read-only)
+  const sessions = state.sessions
+    .filter(s => dateKey(new Date(s.start)) === selectedDateKey)
+    .sort((a,b)=> a.start - b.start);
+  daySessionsList.innerHTML = '';
+  if(sessions.length === 0){
+    daySessionsList.innerHTML = '<div class="empty" style="padding:8px 0;">No logged sessions.</div>';
+  } else {
+    sessions.forEach(s=>{
+      const row = document.createElement('div');
+      row.className = 'entry';
+      row.innerHTML = `
+        <div class="entry-top">
+          <div>
+            <div class="name">${escapeHtml(s.task)}</div>
+            <div class="range">${fmtTime(s.start)} – ${fmtTime(s.end)}</div>
+          </div>
+          <div class="dur">${fmtShort(s.end - s.start)}</div>
+        </div>
+        ${s.reflection ? `<div class="reflection">${escapeHtml(s.reflection)}</div>` : ''}
+      `;
+      daySessionsList.appendChild(row);
+    });
+  }
+}
+
+calPrev.addEventListener('click', ()=>{
+  calMonthCursor.setMonth(calMonthCursor.getMonth()-1);
+  renderCalendar();
+});
+calNext.addEventListener('click', ()=>{
+  calMonthCursor.setMonth(calMonthCursor.getMonth()+1);
+  renderCalendar();
+});
+schedAddBtn.addEventListener('click', ()=>{
+  const title = schedTitle.value.trim();
+  if(!title) return;
+  state.scheduled.push({
+    id: uid(),
+    date: selectedDateKey,
+    time: schedTime.value || '',
+    title
+  });
+  saveState(state);
+  schedTitle.value = '';
+  renderCalendar();
+});
+
+/* ---------- Export ---------- */
+// Wraps a value in quotes if it contains a comma, quote, or newline —
+// standard CSV escaping so task names/reflections with punctuation don't
+// break the columns.
+function toCSVValue(v){
+  const s = String(v ?? '');
+  if(/[",\n]/.test(s)){
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+function buildCSV(){
+  const header = [
+    'Date', 'Day of Week', 'Task',
+    'Start Time', 'End Time',
+    'Start Hour (decimal)', 'Duration (min)', 'Duration (hr)',
+    'Reflection'
+  ];
+  const rows = [...state.sessions]
+    .sort((a,b)=> a.start - b.start) // chronological order, easiest to analyze
+    .map(s=>{
+      const startDate = new Date(s.start);
+      const startHourDecimal = (startDate.getHours() + startDate.getMinutes()/60).toFixed(2);
+      const durMin = Math.round((s.end - s.start)/60000);
+      const durHr = ((s.end - s.start)/3600000).toFixed(2);
+      return [
+        dateKey(startDate),
+        startDate.toLocaleDateString([], {weekday:'long'}),
+        s.task,
+        fmtTime(s.start),
+        fmtTime(s.end),
+        startHourDecimal,
+        durMin,
+        durHr,
+        s.reflection || ''
+      ];
+    });
+  return [header, ...rows].map(r => r.map(toCSVValue).join(',')).join('\r\n');
+}
+
+async function exportCSV(){
+  const csv = buildCSV();
+  const filename = `workclock-export-${dateKey(new Date())}.csv`;
+  const file = new File([csv], filename, { type: 'text/csv' });
+
+  // On iOS, the share sheet is the reliable way to get a file out of an
+  // installed home-screen app — it offers Save to Files, Mail, AirDrop, etc.
+  if(navigator.canShare && navigator.canShare({ files: [file] })){
+    try{
+      await navigator.share({ files: [file], title: 'Work Clock Export' });
+      return;
+    }catch(e){
+      // user cancelled the share sheet, or share failed — fall back below
+    }
+  }
+
+  // Fallback for browsers without file-sharing support (e.g. desktop):
+  // a normal download link.
+  const url = URL.createObjectURL(file);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=> URL.revokeObjectURL(url), 2000);
+}
+
+document.getElementById('exportBtn').addEventListener('click', exportCSV);
+
+/* ---------- Events: clock ---------- */
+punchBtn.addEventListener('click', ()=>{
+  if(state.active) clockOut();
+  else clockIn();
+});
+
+/* ---------- Service worker registration (see sw.js) ---------- */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(err=>console.error('SW registration failed', err));
+  });
+}
+
+render();
+</script>
+</body>
+</html>
